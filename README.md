@@ -9,8 +9,8 @@
 ### 2025-02
 
 ## Integrantes
-- [Nome](https://github.com/xxx)
-- [Nome](https://github.com/xxx)
+- [José Longo Neto](https://github.com/Jose-Longo-A)
+- [Pablo Dimitrof](https://github.com/PabloDimitrof)
 
 ## Cliente do Projeto
 
