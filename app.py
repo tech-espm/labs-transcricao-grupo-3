@@ -2,7 +2,7 @@ from openai import OpenAI
 from config import api_key
 
 client = OpenAI(api_key=api_key)
-audio_file= open("audioaqui/AudioProLab.ogg", "rb") 
+audio_file= open("audioaqui/audio2.ogg", "rb") 
 
 transcription = client.audio.transcriptions.create(
   file=audio_file,
