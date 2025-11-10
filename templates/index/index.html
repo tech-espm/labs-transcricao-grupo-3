@@ -16,7 +16,7 @@
 
   <div class="card shadow-sm mb-4">
     <div class="card-body">
-		<form action="{{ url_for('transcrever') }}" method="POST" enctype="multipart/form-data"></form>
+		<form action="{{ url_for('transcrever') }}" method="POST" enctype="multipart/form-data">
 			<div class="mb-3">
 				<label for="audio" class="form-label">Selecione um arquivo de áudio</label>
 				<input class="form-control" type="file" id="audio" name="audio" accept="audio/*" required>
