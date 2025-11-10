@@ -1,0 +1,48 @@
+{% extends 'layout.html' %}
+
+{% block body %}
+<div class="container py-4">
+  <h1 class="mb-3">Transcritor de Áudio</h1>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="alert alert-warning" role="alert">
+        {% for m in messages %}
+          <div>{{ m }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+		<form action="{{ url_for('transcrever') }}" method="POST" enctype="multipart/form-data"></form>
+			<div class="mb-3">
+				<label for="audio" class="form-label">Selecione um arquivo de áudio</label>
+				<input class="form-control" type="file" id="audio" name="audio" accept="audio/*" required>
+			</div>
+			<button type="submit" class="btn btn-primary">Transcrever</button>
+		</form>	
+    </div>
+  </div>
+
+  {% if resultado %}
+    <div class="card shadow-sm">
+      <div class="card-header"><strong>Resultado da Transcrição</strong></div>
+      <div class="card-body">
+        {% if resultado.text %}
+          <label class="form-label"><strong>Transcrição:</strong></label>
+          <textarea class="form-control" rows="8" readonly>{{ resultado.text }}</textarea>
+        {% endif %}
+
+        {% if resultado.words %}
+          <hr>
+          <p class="mb-1"><strong>Palavras (com tempo):</strong></p>
+          <pre class="mb-0" style="white-space: pre-wrap;">{{ resultado.words | tojson(indent=2) }}</pre>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+  
+</div>
+{% endblock %}
