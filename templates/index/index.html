@@ -3,26 +3,49 @@
 {% block body %}
 <div class="container py-4">
   <h1 class="mb-3">Transcritor de Áudio</h1>
-  <p class="text-muted">Envie um arquivo e aguarde a transcrição sem recarregar a página.</p>
+  <p class="text-muted">Envie um arquivo ou grave seu áudio na hora.</p>
 
   <div class="card shadow-sm mb-4">
     <div class="card-body">
       <form id="uploadForm">
         <div class="mb-3">
           <label for="audio" class="form-label">Selecione um arquivo de áudio</label>
-          <input class="form-control" type="file" id="audio" name="audio" accept="audio/*" required>
+          <input class="form-control" type="file" id="audio" name="audio" accept="audio/*">
+          <div class="form-text">Você pode enviar um arquivo pronto ou usar a gravação abaixo.</div>
         </div>
-        <button type="submit" class="btn btn-primary" id="btnTranscrever">
-          Transcrever
+        <button type="submit" class="btn btn-primary" id="btnTranscreverArquivo">
+          Transcrever arquivo
         </button>
       </form>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h5 class="card-title mb-3">Gravar áudio agora</h5>
+      <p class="text-muted mb-2">Use o microfone do dispositivo para gravar uma mensagem e transcrever.</p>
+      
+      <div class="d-flex gap-2 align-items-center mb-2">
+        <button type="button" class="btn btn-outline-primary" id="btnGravar">
+          🎙️ Iniciar gravação
+        </button>
+        <span id="statusGravacao" class="text-muted">Aguardando gravação...</span>
+      </div>
+
+      <button type="button" class="btn btn-primary" id="btnTranscreverGravacao" disabled>
+        Transcrever gravação
+      </button>
+
+      <div class="mt-2">
+        <small id="infoGravacao" class="text-muted"></small>
+      </div>
     </div>
   </div>
 
   <div id="resultadoContainer" class="card shadow-sm d-none">
     <div class="card-header"><strong>Resultado da Transcrição</strong></div>
     <div class="card-body">
-      <div id="loading" class="text-muted">Processando áudio...</div>
+      <div id="loading" class="text-muted" style="display:none;">Processando áudio...</div>
       <div id="transcricaoBox" style="display:none;">
         <label class="form-label"><strong>Transcrição:</strong></label>
         <textarea id="transcricaoTexto" class="form-control" rows="8" readonly></textarea>
@@ -32,43 +55,123 @@
 </div>
 
 <script>
-document.getElementById("uploadForm").addEventListener("submit", async function(e) {
-  e.preventDefault();
-  const fileInput = document.getElementById("audio");
-  const resultadoContainer = document.getElementById("resultadoContainer");
-  const transcricaoBox = document.getElementById("transcricaoBox");
-  const transcricaoTexto = document.getElementById("transcricaoTexto");
-  const loading = document.getElementById("loading");
+  document.getElementById("uploadForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const fileInput = document.getElementById("audio");
 
-  if (!fileInput.files.length) {
-    alert("Selecione um arquivo de áudio primeiro!");
-    return;
-  }
-
-  resultadoContainer.classList.remove("d-none");
-  loading.style.display = "block";
-  transcricaoBox.style.display = "none";
-
-  const formData = new FormData();
-  formData.append("audio", fileInput.files[0]);
-
-  try {
-    const response = await fetch("/transcrever", { method: "POST", body: formData });
-    const data = await response.json();
-
-    loading.style.display = "none";
-
-    if (data.error) {
-      transcricaoTexto.value = "Erro: " + data.error;
-    } else {
-      transcricaoTexto.value = data.text || "(Sem texto retornado)";
+    if (!fileInput.files.length) {
+      alert("Selecione um arquivo de áudio primeiro!");
+      return;
     }
 
-    transcricaoBox.style.display = "block";
-  } catch (error) {
-    loading.style.display = "none";
-    alert("Erro ao enviar arquivo: " + error);
+    const formData = new FormData();
+    formData.append("audio", fileInput.files[0]);
+
+    await enviarParaTranscricao(formData);
+  });
+
+  let mediaRecorder = null;
+  let recordedChunks = [];
+  let recordedBlob = null;
+  let isRecording = false;
+
+  const btnGravar = document.getElementById("btnGravar");
+  const btnTranscreverGravacao = document.getElementById("btnTranscreverGravacao");
+  const statusGravacao = document.getElementById("statusGravacao");
+  const infoGravacao = document.getElementById("infoGravacao");
+
+  btnGravar.addEventListener("click", async () => {
+    if (!isRecording) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recordedChunks = [];
+        recordedBlob = null;
+
+        mediaRecorder = new MediaRecorder(stream, {
+          mimeType: MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : undefined
+        });
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            recordedChunks.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          recordedBlob = new Blob(recordedChunks, { type: "audio/webm" });
+          const tamanhoKB = (recordedBlob.size / 1024).toFixed(1);
+          infoGravacao.textContent = `Gravação pronta (${tamanhoKB} KB). Você pode clicar em "Transcrever gravação".`;
+          btnTranscreverGravacao.disabled = false;
+
+          stream.getTracks().forEach(track => track.stop());
+        };
+
+        mediaRecorder.start();
+        isRecording = true;
+        btnGravar.textContent = "⏹️ Parar gravação";
+        btnGravar.classList.remove("btn-outline-primary");
+        btnGravar.classList.add("btn-danger");
+        statusGravacao.textContent = "Gravando... clique para parar.";
+        infoGravacao.textContent = "";
+
+        btnTranscreverGravacao.disabled = true;
+      } catch (err) {
+        console.error(err);
+        alert("Não foi possível acessar o microfone. Verifique as permissões do navegador.");
+      }
+    } else {
+      mediaRecorder.stop();
+      isRecording = false;
+      btnGravar.textContent = "🎙️ Iniciar gravação";
+      btnGravar.classList.remove("btn-danger");
+      btnGravar.classList.add("btn-outline-primary");
+      statusGravacao.textContent = "Gravação finalizada.";
+    }
+  });
+
+  btnTranscreverGravacao.addEventListener("click", async () => {
+    if (!recordedBlob) {
+      alert("Nenhuma gravação disponível. Grave um áudio primeiro.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("audio", recordedBlob, "gravacao.webm");
+
+    await enviarParaTranscricao(formData);
+  });
+
+  async function enviarParaTranscricao(formData) {
+    const resultadoContainer = document.getElementById("resultadoContainer");
+    const transcricaoBox = document.getElementById("transcricaoBox");
+    const transcricaoTexto = document.getElementById("transcricaoTexto");
+    const loading = document.getElementById("loading");
+
+    resultadoContainer.classList.remove("d-none");
+    loading.style.display = "block";
+    transcricaoBox.style.display = "none";
+    transcricaoTexto.value = "";
+
+    try {
+      const response = await fetch("/transcrever", {
+        method: "POST",
+        body: formData
+      });
+
+      const data = await response.json();
+      loading.style.display = "none";
+
+      if (data.error) {
+        transcricaoTexto.value = "Erro: " + data.error;
+      } else {
+        transcricaoTexto.value = data.text || "(Sem texto retornado)";
+      }
+
+      transcricaoBox.style.display = "block";
+    } catch (error) {
+      loading.style.display = "none";
+      alert("Erro ao enviar áudio: " + error);
+    }
   }
-});
 </script>
 {% endblock %}
