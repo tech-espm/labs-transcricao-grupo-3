@@ -3,46 +3,72 @@
 {% block body %}
 <div class="container py-4">
   <h1 class="mb-3">Transcritor de Áudio</h1>
-
-  {% with messages = get_flashed_messages() %}
-    {% if messages %}
-      <div class="alert alert-warning" role="alert">
-        {% for m in messages %}
-          <div>{{ m }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
-  {% endwith %}
+  <p class="text-muted">Envie um arquivo e aguarde a transcrição sem recarregar a página.</p>
 
   <div class="card shadow-sm mb-4">
     <div class="card-body">
-		<form action="{{ url_for('transcrever') }}" method="POST" enctype="multipart/form-data">
-			<div class="mb-3">
-				<label for="audio" class="form-label">Selecione um arquivo de áudio</label>
-				<input class="form-control" type="file" id="audio" name="audio" accept="audio/*" required>
-			</div>
-			<button type="submit" class="btn btn-primary">Transcrever</button>
-		</form>	
+      <form id="uploadForm">
+        <div class="mb-3">
+          <label for="audio" class="form-label">Selecione um arquivo de áudio</label>
+          <input class="form-control" type="file" id="audio" name="audio" accept="audio/*" required>
+        </div>
+        <button type="submit" class="btn btn-primary" id="btnTranscrever">
+          Transcrever
+        </button>
+      </form>
     </div>
   </div>
 
-  {% if resultado %}
-    <div class="card shadow-sm">
-      <div class="card-header"><strong>Resultado da Transcrição</strong></div>
-      <div class="card-body">
-        {% if resultado.text %}
-          <label class="form-label"><strong>Transcrição:</strong></label>
-          <textarea class="form-control" rows="8" readonly>{{ resultado.text }}</textarea>
-        {% endif %}
-
-        {% if resultado.words %}
-          <hr>
-          <p class="mb-1"><strong>Palavras (com tempo):</strong></p>
-          <pre class="mb-0" style="white-space: pre-wrap;">{{ resultado.words | tojson(indent=2) }}</pre>
-        {% endif %}
+  <div id="resultadoContainer" class="card shadow-sm d-none">
+    <div class="card-header"><strong>Resultado da Transcrição</strong></div>
+    <div class="card-body">
+      <div id="loading" class="text-muted">Processando áudio...</div>
+      <div id="transcricaoBox" style="display:none;">
+        <label class="form-label"><strong>Transcrição:</strong></label>
+        <textarea id="transcricaoTexto" class="form-control" rows="8" readonly></textarea>
       </div>
     </div>
-  {% endif %}
-  
+  </div>
 </div>
+
+<script>
+document.getElementById("uploadForm").addEventListener("submit", async function(e) {
+  e.preventDefault();
+  const fileInput = document.getElementById("audio");
+  const resultadoContainer = document.getElementById("resultadoContainer");
+  const transcricaoBox = document.getElementById("transcricaoBox");
+  const transcricaoTexto = document.getElementById("transcricaoTexto");
+  const loading = document.getElementById("loading");
+
+  if (!fileInput.files.length) {
+    alert("Selecione um arquivo de áudio primeiro!");
+    return;
+  }
+
+  resultadoContainer.classList.remove("d-none");
+  loading.style.display = "block";
+  transcricaoBox.style.display = "none";
+
+  const formData = new FormData();
+  formData.append("audio", fileInput.files[0]);
+
+  try {
+    const response = await fetch("/transcrever", { method: "POST", body: formData });
+    const data = await response.json();
+
+    loading.style.display = "none";
+
+    if (data.error) {
+      transcricaoTexto.value = "Erro: " + data.error;
+    } else {
+      transcricaoTexto.value = data.text || "(Sem texto retornado)";
+    }
+
+    transcricaoBox.style.display = "block";
+  } catch (error) {
+    loading.style.display = "none";
+    alert("Erro ao enviar arquivo: " + error);
+  }
+});
+</script>
 {% endblock %}

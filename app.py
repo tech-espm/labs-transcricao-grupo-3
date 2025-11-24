@@ -1,12 +1,9 @@
-from flask import Flask, render_template, json, request, Response, redirect, url_for, flash
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from werkzeug.utils import secure_filename
-from openai import OpenAI
-import config
-import json
-import os
-import tempfile
+import os, tempfile
 from datetime import datetime
 from transcricao import transcrever_audio
+import config
 
 app = Flask(__name__)
 
@@ -15,42 +12,29 @@ def rodar_transcricao(caminho_audio: str):
 
 @app.get('/')
 def index():
-    hoje = datetime.today().strftime('%Y-%m-%d')
-    return render_template('index/index.html', hoje=hoje)
+    return render_template('index/index.html', hoje=datetime.today().strftime('%Y-%m-%d'))
 
-@app.route("/transcrever", methods=["POST"])
+@app.post('/transcrever')
 def transcrever():
     if 'audio' not in request.files:
-        flash("Nenhum arquivo recebido (campo 'audio' ausente).")
-        return redirect(url_for("index"))
+        return jsonify({"error": "Nenhum arquivo recebido."}), 400
 
     file = request.files['audio']
     if file.filename == '':
-        flash("Nenhum arquivo selecionado.")
-        return redirect(url_for("index"))
+        return jsonify({"error": "Nenhum arquivo selecionado."}), 400
 
     filename = secure_filename(file.filename)
     _, ext = os.path.splitext(filename)
+
     with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
         file.save(tmp.name)
         temp_path = tmp.name
 
     try:
         resultado = rodar_transcricao(temp_path)
-
-        if isinstance(resultado, str):
-            resultado_dict = {"transcricao": resultado}
-        else:
-            resultado_dict = resultado
-
-        return render_template(
-            "index/index.html",
-            hoje=datetime.today().strftime("%Y-%m-%d"),
-            resultado=resultado_dict
-        )
+        return jsonify(resultado)
     except Exception as e:
-        flash(f"Erro ao transcrever: {e}")
-        return redirect(url_for("index"))
+        return jsonify({"error": str(e)}), 500
     finally:
         try:
             os.remove(temp_path)
